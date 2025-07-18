@@ -23,7 +23,7 @@ del /f "C:\Users\Public\Desktop\Unity Hub.lnk" > errormsg.txt 2>&1
 
 rem Set user password
 set password=@#Disala123456
-rem --- CORRECTED COMMAND ---
+rem --- CORRECTED COMMAND TO FIX MODULE LOADING ERROR ---
 powershell -Command "Import-Module Microsoft.PowerShell.Security; $pwd = ConvertTo-SecureString -String '%password%' -AsPlainText -Force; Set-LocalUser -Name 'runneradmin' -Password $pwd"
 
 rem --- RDP Configuration ---
