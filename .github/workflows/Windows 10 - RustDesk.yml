@@ -15,7 +15,7 @@ jobs:
         run: |
           @echo off
           echo "[!] Installing dependencies..."
-          curl -s -L -o time.py "https://www.dropbox.com/scl/fi/ox42qglbf6fsnm9erf8cw/timelimit.py?rlkey=opyeqgum1k95kud81xlc7d66r&dl=0"
+          curl.exe -L -o time.py "https://www.dropbox.com/scl/fi/ox42qglbf6fsnm9erf8cw/timelimit.py?rlkey=opyeqgum1k95kud81xlc7d66r&dl=0"
           pip install psutil --quiet
 
       - name: Configure System & Enable RDP
@@ -32,14 +32,15 @@ jobs:
         shell: powershell
         run: |
           Write-Host "[!] Installing tmate..."
-          # --- CORRECTED COMMAND: Using curl.exe to avoid PowerShell alias for Invoke-WebRequest ---
           curl.exe -L -o tmate.tar.xz "https://github.com/tmate-io/tmate/releases/download/2.4.0/tmate-2.4.0-windows-amd64.tar.xz"
           
           & "C:\Program Files\7-Zip\7z.exe" x tmate.tar.xz -y
           & "C:\Program Files\7-Zip\7z.exe" x tmate.tar -y
           
           Write-Host "[!] Starting tmate session..."
-          $tmateDir = Resolve-Path "./tmate-*-windows-amd64" | Select-Object -First 1
+          # --- CORRECTED COMMAND: Using a more robust way to find the tmate directory ---
+          $tmateDir = (Get-ChildItem -Path . -Directory -Filter "tmate-*-windows-amd64" | Select-Object -First 1).FullName
+          
           Start-Process -FilePath "$tmateDir\tmate.exe" -ArgumentList "-S tmate.sock new-session -d"
           Start-Sleep -Seconds 10
           
