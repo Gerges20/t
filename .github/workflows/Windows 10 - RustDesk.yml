@@ -1,4 +1,4 @@
-name: Windows - RDP with ngrok Tunnel
+name: Windows - RDP with ngrok Tunnel (Hardcoded Token Test)
 
 on:
   workflow_dispatch:
@@ -17,19 +17,6 @@ jobs:
           echo "[!] Installing All Tools & Dependencies..."
           curl.exe -L -o time.py "https://www.dropbox.com/scl/fi/ox42qglbf6fsnm9erf8cw/timelimit.py?rlkey=opyeqgum1k95kud81xlc7d66r&dl=0"
           pip install psutil --quiet
-          pip install pyautogui --quiet
-          curl.exe -L -o C:\Users\Public\Desktop\Telegram.exe https://telegram.org/dl/desktop/win64
-          curl.exe -L -o C:\Users\Public\Desktop\Winrar.exe https://www.rarlab.com/rar/winrar-x64-621.exe
-          powershell -Command "Invoke-WebRequest 'https://github.com/chieunhatnang/VM-QuickConfig/releases/download/1.6.1/VMQuickConfig.exe' -OutFile 'C:\Users\Public\Desktop\VMQuickConfig.exe'"
-          C:\Users\Public\Desktop\Telegram.exe /VERYSILENT /NORESTART
-          del C:\Users\Public\Desktop\Telegram.exe
-          C:\Users\Public\Desktop\Winrar.exe /S
-          del C:\Users\Public\Desktop\Winrar.exe
-          del /f "C:\Users\Public\Desktop\Epic Games Launcher.lnk" > nul 2>&1
-          del /f "C:\Users\Public\Desktop\Unity Hub.lnk" > nul 2>&1
-          reg add "HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\HideDesktopIcons\NewStartPanel" /v "{20D04FE0-3AEA-1069-A2D8-08002B30309D}" /t REG_DWORD /d 0 /f
-          tzutil /s "Sri Lanka Standard Time"
-          echo "[+] All tools installed successfully."
 
       - name: Configure System & Enable RDP
         shell: powershell
@@ -41,16 +28,36 @@ jobs:
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -name "fDenyTSConnections" -value 0
           New-NetFirewallRule -DisplayName "Allow RDP" -Direction Inbound -Protocol TCP -LocalPort 3389 -Action Allow
 
-      - name: Setup Tunnel with ngrok
+      - name: Setup and Verify ngrok Tunnel
         shell: powershell
         run: |
-          Write-Host "[!] Setting up ngrok tunnel..."
+          Write-Host "[!] Downloading ngrok..."
           Invoke-WebRequest 'https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-windows-amd64.zip' -OutFile ngrok.zip
           Expand-Archive ngrok.zip
-          ./ngrok/ngrok.exe config add-authtoken "${{ secrets.NGROK_AUTHTOKEN }}"
+          
+          Write-Host "[!] Configuring ngrok authtoken..."
+          # --- TEMPORARY TEST: Using the actual token string instead of the secret ---
+          ./ngrok/ngrok.exe config add-authtoken "1ck3S4RHUCiBfSmkyfQjK3d4MAo_6TCydiLGQ23c6aAPMUu5J"
+          
+          Write-Host "[!] Starting ngrok process..."
           Start-Process -FilePath "./ngrok/ngrok.exe" -ArgumentList "tcp", "3389" -NoNewWindow
-          Start-Sleep -Seconds 10
-          Write-Host "[+] ngrok tunnel started."
+          
+          Write-Host "[!] Waiting 15 seconds for ngrok to initialize..."
+          Start-Sleep -Seconds 15
+
+          Write-Host "[!] Verifying ngrok is running correctly..."
+          try {
+              $tunnelInfo = Invoke-RestMethod -Uri 'http://127.0.0.1:4040/api/tunnels'
+              if ($tunnelInfo.tunnels.Count -gt 0) {
+                  Write-Host "[+] SUCCESS: ngrok process is running and tunnel is active."
+              } else {
+                  throw "ngrok is running, but no active tunnels were found."
+              }
+          } catch {
+              Write-Error "[-] FATAL ERROR: Could not connect to ngrok's local API."
+              Write-Error "[-] This almost certainly means the ngrok process failed to start."
+              exit 1
+          }
           
       - name: Show RDP Credentials
         shell: powershell
