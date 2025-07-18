@@ -1,4 +1,4 @@
-name: Windows - RDP with ngrok Tunnel (Hardcoded Token Tesst)
+name: Windows - RDP with ngrok (Single Step)
 
 on:
   workflow_dispatch:
@@ -10,58 +10,33 @@ jobs:
     timeout-minutes: 9999
 
     steps:
-      - name: Install All Tools & Dependencies
-        shell: cmd
-        run: |
-          @echo off
-          echo "[!] Installing All Tools & Dependencies..."
-          curl.exe -L -o time.py "https://www.dropbox.com/scl/fi/ox42qglbf6fsnm9erf8cw/timelimit.py?rlkey=opyeqgum1k95kud81xlc7d66r&dl=0"
-          pip install psutil --quiet
-
-      - name: Configure System & Enable RDP
+      - name: Setup RDP, Tunnel, and Keep-Alive
         shell: powershell
         run: |
-          Write-Host "[!] Setting User Password..."
+          # Part 1: Install Dependencies
+          Write-Host "[1] Installing Dependencies..."
+          Invoke-WebRequest -Uri "https://www.dropbox.com/scl/fi/ox42qglbf6fsnm9erf8cw/timelimit.py?rlkey=opyeqgum1k95kud81xlc7d66r&dl=0" -OutFile "time.py"
+          pip install psutil --quiet
+
+          # Part 2: Configure System for RDP
+          Write-Host "[2] Configuring System for RDP..."
           $password = "@#Disala123456"
           Set-LocalUser -Name "runneradmin" -Password ($password | ConvertTo-SecureString -AsPlainText -Force)
-          Write-Host "[!] Enabling RDP..."
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -name "fDenyTSConnections" -value 0
           New-NetFirewallRule -DisplayName "Allow RDP" -Direction Inbound -Protocol TCP -LocalPort 3389 -Action Allow
 
-      - name: Setup and Verify ngrok Tunnel
-        shell: powershell
-        run: |
-          Write-Host "[!] Downloading ngrok..."
+          # Part 3: Setup ngrok
+          Write-Host "[3] Setting up ngrok tunnel..."
           Invoke-WebRequest 'https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-windows-amd64.zip' -OutFile ngrok.zip
           Expand-Archive ngrok.zip
-          
-          Write-Host "[!] Configuring ngrok with hardcoded authtoken for testing..."
-          # --- TEST: Using the actual token string directly ---
+          # Using the hardcoded token since it's the one that worked in the test
           ./ngrok/ngrok.exe config add-authtoken "1ck3S4RHUCiBfSmkyfQjK3d4MAo_6TCydiLGQ23c6aAPMUu5J"
-          
-          Write-Host "[!] Starting ngrok process..."
+          # Start ngrok process in the background
           Start-Process -FilePath "./ngrok/ngrok.exe" -ArgumentList "tcp", "3389" -NoNewWindow
-          
-          Write-Host "[!] Waiting 15 seconds for ngrok to initialize..."
           Start-Sleep -Seconds 15
 
-          Write-Host "[!] Verifying ngrok is running correctly..."
-          try {
-              $tunnelInfo = Invoke-RestMethod -Uri 'http://127.0.0.1:4040/api/tunnels'
-              if ($tunnelInfo.tunnels.Count -gt 0) {
-                  Write-Host "[+] SUCCESS: ngrok process is running and tunnel is active."
-              } else {
-                  throw "ngrok is running, but no active tunnels were found."
-              }
-          } catch {
-              Write-Error "[-] FATAL ERROR: Could not connect to ngrok's local API."
-              Write-Error "[-] The ngrok process FAILED to start. This proves the Authtoken value itself is INVALID."
-              exit 1
-          }
-          
-      - name: Show RDP Credentials
-        shell: powershell
-        run: |
+          # Part 4: Retrieve and Display Credentials
+          Write-Host "[4] Retrieving and displaying credentials..."
           $tunnel = (Invoke-RestMethod -Uri 'http://127.0.0.1:4040/api/tunnels').tunnels[0]
           $rdpAddress = $tunnel.public_url.Replace("tcp://", "")
           Write-Host "###############################################" -ForegroundColor Green
@@ -75,5 +50,6 @@ jobs:
           Write-Host "   Example: 0.tcp.ngrok.io:12345"
           Write-Host "###############################################" -ForegroundColor Green
 
-      - name: Keep Runner Alive
-        run: python time.py
+          # Part 5: Keep Alive
+          Write-Host "[5] Starting keep-alive script. The job will now hang intentionally to keep the session open."
+          python.exe time.py
