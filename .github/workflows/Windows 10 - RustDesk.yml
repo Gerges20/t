@@ -1,4 +1,4 @@
-name: Windows - RDP with localhost.run Tunnel
+name: Windows - RDP with tmate Tunnel
 
 on:
   workflow_dispatch:
@@ -14,75 +14,56 @@ jobs:
         shell: cmd
         run: |
           @echo off
-          echo "[!] Installing All Tools & Dependencies..."
+          echo "[!] Installing dependencies..."
           curl -s -L -o time.py "https://www.dropbox.com/scl/fi/ox42qglbf6fsnm9erf8cw/timelimit.py?rlkey=opyeqgum1k95kud81xlc7d66r&dl=0"
           pip install psutil --quiet
-          pip install pyautogui --quiet
-          curl -s -L -o C:\Users\Public\Desktop\Telegram.exe https://telegram.org/dl/desktop/win64
-          curl -s -L -o C:\Users\Public\Desktop\Winrar.exe https://www.rarlab.com/rar/winrar-x64-621.exe
-          powershell -Command "Invoke-WebRequest 'https://github.com/chieunhatnang/VM-QuickConfig/releases/download/1.6.1/VMQuickConfig.exe' -OutFile 'C:\Users\Public\Desktop\VMQuickConfig.exe'"
-          C:\Users\Public\Desktop\Telegram.exe /VERYSILENT /NORESTART
-          del C:\Users\Public\Desktop\Telegram.exe
-          C:\Users\Public\Desktop\Winrar.exe /S
-          del C:\Users\Public\Desktop\Winrar.exe
-          del /f "C:\Users\Public\Desktop\Epic Games Launcher.lnk" > nul 2>&1
-          del /f "C:\Users\Public\Desktop\Unity Hub.lnk" > nul 2>&1
-          reg add "HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\HideDesktopIcons\NewStartPanel" /v "{20D04FE0-3AEA-1069-A2D8-08002B30309D}" /t REG_DWORD /d 0 /f
-          tzutil /s "Sri Lanka Standard Time"
-          echo "[+] All tools installed successfully."
 
       - name: Configure System & Enable RDP
         shell: powershell
         run: |
           Write-Host "[!] Setting User Password..."
           $password = "@#Disala123456"
-          Import-Module Microsoft.PowerShell.Security
-          $securePassword = ConvertTo-SecureString -String $password -AsPlainText -Force
-          Set-LocalUser -Name "runneradmin" -Password $securePassword
-          Write-Host "[+] Password set successfully for 'runneradmin'."
-          Write-Host "[!] Enabling RDP and Configuring Firewall..."
+          Set-LocalUser -Name "runneradmin" -Password ($password | ConvertTo-SecureString -AsPlainText -Force)
+          Write-Host "[!] Enabling RDP..."
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -name "fDenyTSConnections" -value 0
           New-NetFirewallRule -DisplayName "Allow RDP" -Direction Inbound -Protocol TCP -LocalPort 3389 -Action Allow
-          Write-Host "[+] RDP Configuration Complete."
 
-      - name: Setup Tunnel with localhost.run
+      - name: Setup Tunnel with tmate
         shell: powershell
         run: |
-          Write-Host "[!] Setting up tunnel with localhost.run..."
+          Write-Host "[!] Installing tmate..."
+          Invoke-WebRequest -Uri "https://github.com/tmate-io/tmate/releases/download/2.4.0/tmate-2.4.0-windows-amd64.tar.xz" -OutFile "tmate.tar.xz"
+          & "C:\Program Files\7-Zip\7z.exe" x tmate.tar.xz -y
+          & "C:\Program Files\7-Zip\7z.exe" x tmate.tar -y
           
-          # --- CORRECTED COMMAND: Using cmd.exe to start the process in the background and redirect all output ---
-          cmd.exe /c "start /b ssh -o StrictHostKeyChecking=no -R 0:localhost:3389 localhost.run > ssh.log 2>&1"
-
-          Write-Host "Waiting for tunnel to initialize..."
-          Start-Sleep -Seconds 15 # Wait for the connection to be established and logged
+          Write-Host "[!] Starting tmate session..."
+          $tmateDir = Resolve-Path "./tmate-*-windows-amd64" | Select-Object -First 1
+          Start-Process -FilePath "$tmateDir\tmate.exe" -ArgumentList "-S tmate.sock new-session -d"
+          Start-Sleep -Seconds 10
           
-          Write-Host "Reading tunnel details from log..."
-          $logContent = Get-Content -Path ssh.log -Raw
-          $port = ($logContent | Select-String -Pattern '(?<=remote port )\d+').Matches.Value
-          
-          If ($port) {
-              echo "RDP_HOST=localhost.run" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-              echo "RDP_PORT=$port" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-              Write-Host "[+] Tunnel created successfully on port $port."
-          } Else {
-              Write-Host "[-] Failed to create tunnel. Log content:"
-              Write-Host $logContent
-              exit 1
-          }
+          Write-Host "[!] Retrieving tmate connection string..."
+          $ssh_connection = & "$tmateDir\tmate.exe" -S tmate.sock display -p '#{tmate_ssh}'
+          echo "TMATE_SSH=$ssh_connection" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          Write-Host "[+] tmate session is ready."
 
       - name: Show RDP Credentials
         shell: powershell
         run: |
-          Write-Host "###############################################" -ForegroundColor Green
-          Write-Host "## RDP Connection Details (USE localhost.run)" -ForegroundColor Green
-          Write-Host "###############################################" -ForegroundColor Green
+          Write-Host "###################################################################" -ForegroundColor Yellow
+          Write-Host "## 2-Step RDP Connection via tmate (READ INSTRUCTIONS)" -ForegroundColor Yellow
+          Write-Host "###################################################################"
           Write-Host ""
-          Write-Host "   RDP Host: ${{ env.RDP_HOST }}"
-          Write-Host "   RDP Port: ${{ env.RDP_PORT }}"
-          Write-Host "   Username:   runneradmin"
-          Write-Host "   Password:   @#Disala123456"
+          Write-Host "   STEP 1: On your PC, open CMD and run this SSH command:"
+          Write-Host "   ssh -L 33890:localhost:3389 ${{ env.TMATE_SSH }}" -ForegroundColor Cyan
           Write-Host ""
-          Write-Host "###############################################" -ForegroundColor Green
-          
+          Write-Host "   STEP 2: Once connected, open Remote Desktop and connect to:"
+          Write-Host "   Computer: localhost:33890" -ForegroundColor Cyan
+          Write-Host ""
+          Write-Host "   --- Credentials ---"
+          Write-Host "   Username: runneradmin"
+          Write-Host "   Password: @#Disala123456"
+          Write-Host ""
+          Write-Host "###################################################################"
+
       - name: Keep Runner Alive
         run: python time.py
