@@ -10,6 +10,12 @@ jobs:
     timeout-minutes: 9999
     
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Download Downloads.bat from GitHub
+        run: curl -L -o Downloads.bat https://raw.githubusercontent.com/Gerges20/download/main/Downloads.bat
+
       - name: Running Local Downloads.bat
         run: cmd /c "Downloads.bat"
 
