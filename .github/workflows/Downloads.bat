@@ -23,7 +23,8 @@ del /f "C:\Users\Public\Desktop\Unity Hub.lnk" > errormsg.txt 2>&1
 
 rem Set user password
 set password=@#Disala123456
-powershell -Command "Set-LocalUser -Name 'runneradmin' -Password (ConvertTo-SecureString -AsPlainText '%password%' -Force)"
+rem --- CORRECTED COMMAND ---
+powershell -Command "Import-Module Microsoft.PowerShell.Security; $pwd = ConvertTo-SecureString -String '%password%' -AsPlainText -Force; Set-LocalUser -Name 'runneradmin' -Password $pwd"
 
 rem --- RDP Configuration ---
 echo [!] Enabling RDP and Configuring Firewall...
