@@ -49,8 +49,10 @@ jobs:
         shell: powershell
         run: |
           Write-Host "[!] Setting up tunnel with localhost.run..."
-          # Start SSH in the background to create the tunnel and redirect output to a log file
-          Start-Process -FilePath "ssh" -ArgumentList "-o StrictHostKeyChecking=no", "-R", "0:localhost:3389", "localhost.run" -NoNewWindow -RedirectStandardError "ssh.log" -RedirectStandardOutput "ssh.log"
+          
+          # --- CORRECTED COMMAND: Using cmd.exe to start the process in the background and redirect all output ---
+          cmd.exe /c "start /b ssh -o StrictHostKeyChecking=no -R 0:localhost:3389 localhost.run > ssh.log 2>&1"
+
           Write-Host "Waiting for tunnel to initialize..."
           Start-Sleep -Seconds 15 # Wait for the connection to be established and logged
           
