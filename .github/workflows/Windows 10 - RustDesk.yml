@@ -10,7 +10,7 @@ jobs:
     timeout-minutes: 9999
 
     steps:
-      - name: Install All Tools & Dependencies
+      - name: Install Dependencies
         shell: cmd
         run: |
           @echo off
@@ -31,21 +31,17 @@ jobs:
       - name: Setup Tunnel with tmate
         shell: powershell
         run: |
-          Write-Host "[!] Installing tmate..."
-          curl.exe -L -o tmate.tar.xz "https://github.com/tmate-io/tmate/releases/download/2.4.0/tmate-2.4.0-windows-amd64.tar.xz"
-          
-          & "C:\Program Files\7-Zip\7z.exe" x tmate.tar.xz -y
-          & "C:\Program Files\7-Zip\7z.exe" x tmate.tar -y
+          Write-Host "[!] Installing tmate via Chocolatey package manager..."
+          # --- This is the new, more reliable installation method ---
+          choco install tmate -y --force
           
           Write-Host "[!] Starting tmate session..."
-          # --- CORRECTED COMMAND: Using a more robust way to find the tmate directory ---
-          $tmateDir = (Get-ChildItem -Path . -Directory -Filter "tmate-*-windows-amd64" | Select-Object -First 1).FullName
-          
-          Start-Process -FilePath "$tmateDir\tmate.exe" -ArgumentList "-S tmate.sock new-session -d"
-          Start-Sleep -Seconds 10
+          # tmate is now in the system PATH, so we can call it directly
+          Start-Process -FilePath "tmate.exe" -ArgumentList "-S tmate.sock new-session -d"
+          Start-Sleep -Seconds 15
           
           Write-Host "[!] Retrieving tmate connection string..."
-          $ssh_connection = & "$tmateDir\tmate.exe" -S tmate.sock display -p '#{tmate_ssh}'
+          $ssh_connection = & tmate.exe -S tmate.sock display -p '#{tmate_ssh}'
           echo "TMATE_SSH=$ssh_connection" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           Write-Host "[+] tmate session is ready."
 
