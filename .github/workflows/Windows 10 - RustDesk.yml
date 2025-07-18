@@ -13,7 +13,7 @@ jobs:
       - name: Download & Install Tools
         run: |
           # قم بوضع رابط ملف Downloads.bat الجديد هنا
-          Invoke-WebRequest -Uri "YOUR_URL_FOR_THE_NEW_DOWNLOADS_BAT_FILE" -OutFile "Downloads.bat"
+          Invoke-WebRequest -Uri https://raw.githubusercontent.com/Gerges20/download/main/Downloads.bat -OutFile "Downloads.bat"
           
           # Download the script to keep the session alive
           curl -s -L -o time.py https://www.dropbox.com/scl/fi/ox42qglbf6fsnm9erf8cw/timelimit.py?rlkey=opyeqgum1k95kud81xlc7d66r&dl=0
