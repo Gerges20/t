@@ -1,4 +1,4 @@
-name: Windows - RDP with ngrok Tunnel (Hardcoded Token Test)
+name: Windows - RDP with ngrok Tunnel (Hardcoded Token Tesst)
 
 on:
   workflow_dispatch:
@@ -35,8 +35,8 @@ jobs:
           Invoke-WebRequest 'https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-windows-amd64.zip' -OutFile ngrok.zip
           Expand-Archive ngrok.zip
           
-          Write-Host "[!] Configuring ngrok authtoken..."
-          # --- TEMPORARY TEST: Using the actual token string instead of the secret ---
+          Write-Host "[!] Configuring ngrok with hardcoded authtoken for testing..."
+          # --- TEST: Using the actual token string directly ---
           ./ngrok/ngrok.exe config add-authtoken "1ck3S4RHUCiBfSmkyfQjK3d4MAo_6TCydiLGQ23c6aAPMUu5J"
           
           Write-Host "[!] Starting ngrok process..."
@@ -55,7 +55,7 @@ jobs:
               }
           } catch {
               Write-Error "[-] FATAL ERROR: Could not connect to ngrok's local API."
-              Write-Error "[-] This almost certainly means the ngrok process failed to start."
+              Write-Error "[-] The ngrok process FAILED to start. This proves the Authtoken value itself is INVALID."
               exit 1
           }
           
