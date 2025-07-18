@@ -1,4 +1,4 @@
-name: Windows - AnyDesk Remote Access
+name: Windows - AnyDesk Remote Access (Robust ID)
 
 on:
   workflow_dispatch:
@@ -31,13 +31,30 @@ jobs:
           Write-Host "[!] Setting password for Unattended Access..."
           $anydeskPassword | & "C:\Program Files (x86)\AnyDesk\AnyDesk.exe" --set-password
           
-          Write-Host "[!] Retrieving AnyDesk ID..."
-          $anydeskId = & "C:\Program Files (x86)\AnyDesk\AnyDesk.exe" --get-id
+          # --- NEW: Robust logic to get ID with retries ---
+          Write-Host "[!] Retrieving AnyDesk ID (will retry up to 5 times)..."
+          $anydeskId = ""
+          for ($i=1; $i -le 5; $i++) {
+              $anydeskId = & "C:\Program Files (x86)\AnyDesk\AnyDesk.exe" --get-id
+              if ($anydeskId) {
+                  Write-Host "[+] Success! AnyDesk ID is: $anydeskId"
+                  break
+              } else {
+                  Write-Host "[-] Attempt $i failed. Retrying in 5 seconds..."
+                  Start-Sleep -Seconds 5
+              }
+          }
+
+          if (-not $anydeskId) {
+              Write-Error "[-] Could not retrieve AnyDesk ID after multiple attempts."
+              exit 1
+          }
           
+          # Save ID and Password for the next step
           echo "ANYDESK_ID=$anydeskId" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           echo "ANYDESK_PASSWORD=$anydeskPassword" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           
-          Write-Host "[+] AnyDesk setup complete. ID: $anydeskId"
+          Write-Host "[+] AnyDesk setup complete."
 
       - name: Show AnyDesk Credentials
         run: |
