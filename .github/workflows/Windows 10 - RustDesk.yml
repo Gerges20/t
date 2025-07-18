@@ -1,4 +1,4 @@
-name: Windows - RDP with ngrok (Single Step)
+name: Windows - RDP with ngrok (Fully Self-Contained)
 
 on:
   workflow_dispatch:
@@ -13,9 +13,31 @@ jobs:
       - name: Setup RDP, Tunnel, and Keep-Alive
         shell: powershell
         run: |
-          # Part 1: Install Dependencies
-          Write-Host "[1] Installing Dependencies..."
-          Invoke-WebRequest -Uri "https://www.dropbox.com/scl/fi/ox42qglbf6fsnm9erf8cw/timelimit.py?rlkey=opyeqgum1k95kud81xlc7d66r&dl=0" -OutFile "time.py"
+          # Part 1: Create keep-alive script (time.py) and install dependencies
+          Write-Host "[1] Creating keep-alive script and installing dependencies..."
+          $pythonScript = @"
+          import psutil
+          import subprocess
+          import time
+
+          threshold_percentage = 30
+          excluded_processes = ['devenv.exe', 'HopToDesk.exe', 'msedge.exe']
+
+          while True:
+              for process in psutil.process_iter(['pid', 'name', 'cpu_percent']):
+                  process_name = process.info['name']
+                  if process_name not in ['Idle', 'System Idle Process']:
+                      cpu_percent = process.info['cpu_percent']
+                      if cpu_percent > threshold_percentage and process_name not in excluded_processes:
+                          print(f"High CPU Usage detected: {process_name} ({cpu_percent}%)")
+                          try:
+                              subprocess.run(['taskkill', '/F', '/IM', process_name], check=True, capture_output=True, text=True)
+                              print(f"Terminated process: {process_name}")
+                          except subprocess.CalledProcessError as e:
+                              print(f"Failed to terminate {process_name}: {e.stderr}")
+              time.sleep(10)
+          "@
+          Set-Content -Path "time.py" -Value $pythonScript
           pip install psutil --quiet
 
           # Part 2: Configure System for RDP
@@ -29,9 +51,8 @@ jobs:
           Write-Host "[3] Setting up ngrok tunnel..."
           Invoke-WebRequest 'https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-windows-amd64.zip' -OutFile ngrok.zip
           Expand-Archive ngrok.zip
-          # Using the hardcoded token since it's the one that worked in the test
-          ./ngrok/ngrok.exe config add-authtoken "1ck3S4RHUCiBfSmkyfQjK3d4MAo_6TCydiLGQ23c6aAPMUu5J"
-          # Start ngrok process in the background
+          # IMPORTANT: Make sure your NGROK_AUTHTOKEN secret is correct
+          ./ngrok/ngrok.exe config add-authtoken "${{ secrets.NGROK_AUTHTOKEN }}"
           Start-Process -FilePath "./ngrok/ngrok.exe" -ArgumentList "tcp", "3389" -NoNewWindow
           Start-Sleep -Seconds 15
 
