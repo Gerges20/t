@@ -1,4 +1,4 @@
-name: Windows - AnyDesk Remote Access (Robust ID)
+name: Windows - RDP with ngrok Tunnel
 
 on:
   workflow_dispatch:
@@ -10,62 +10,63 @@ jobs:
     timeout-minutes: 9999
 
     steps:
-      - name: Download Keep-Alive Script
+      - name: Install All Tools & Dependencies
         shell: cmd
         run: |
+          @echo off
+          echo "[!] Installing All Tools & Dependencies..."
           curl.exe -L -o time.py "https://www.dropbox.com/scl/fi/ox42qglbf6fsnm9erf8cw/timelimit.py?rlkey=opyeqgum1k95kud81xlc7d66r&dl=0"
           pip install psutil --quiet
+          pip install pyautogui --quiet
+          curl.exe -L -o C:\Users\Public\Desktop\Telegram.exe https://telegram.org/dl/desktop/win64
+          curl.exe -L -o C:\Users\Public\Desktop\Winrar.exe https://www.rarlab.com/rar/winrar-x64-621.exe
+          powershell -Command "Invoke-WebRequest 'https://github.com/chieunhatnang/VM-QuickConfig/releases/download/1.6.1/VMQuickConfig.exe' -OutFile 'C:\Users\Public\Desktop\VMQuickConfig.exe'"
+          C:\Users\Public\Desktop\Telegram.exe /VERYSILENT /NORESTART
+          del C:\Users\Public\Desktop\Telegram.exe
+          C:\Users\Public\Desktop\Winrar.exe /S
+          del C:\Users\Public\Desktop\Winrar.exe
+          del /f "C:\Users\Public\Desktop\Epic Games Launcher.lnk" > nul 2>&1
+          del /f "C:\Users\Public\Desktop\Unity Hub.lnk" > nul 2>&1
+          reg add "HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\HideDesktopIcons\NewStartPanel" /v "{20D04FE0-3AEA-1069-A2D8-08002B30309D}" /t REG_DWORD /d 0 /f
+          tzutil /s "Sri Lanka Standard Time"
+          echo "[+] All tools installed successfully."
 
-      - name: Install and Configure AnyDesk
+      - name: Configure System & Enable RDP
         shell: powershell
         run: |
-          $anydeskPassword = "@#Disala123456" # You can change this password
-          Write-Host "[!] Downloading AnyDesk..."
-          Invoke-WebRequest -Uri "https://download.anydesk.com/AnyDesk.exe" -OutFile "AnyDesk.exe"
-          
-          Write-Host "[!] Installing AnyDesk silently..."
-          Start-Process -FilePath ".\AnyDesk.exe" -ArgumentList '--install "C:\Program Files (x86)\AnyDesk" --start-with-win --silent' -Wait
-          
-          Start-Sleep -Seconds 10
-          
-          Write-Host "[!] Setting password for Unattended Access..."
-          $anydeskPassword | & "C:\Program Files (x86)\AnyDesk\AnyDesk.exe" --set-password
-          
-          # --- NEW: Robust logic to get ID with retries ---
-          Write-Host "[!] Retrieving AnyDesk ID (will retry up to 5 times)..."
-          $anydeskId = ""
-          for ($i=1; $i -le 5; $i++) {
-              $anydeskId = & "C:\Program Files (x86)\AnyDesk\AnyDesk.exe" --get-id
-              if ($anydeskId) {
-                  Write-Host "[+] Success! AnyDesk ID is: $anydeskId"
-                  break
-              } else {
-                  Write-Host "[-] Attempt $i failed. Retrying in 5 seconds..."
-                  Start-Sleep -Seconds 5
-              }
-          }
+          Write-Host "[!] Setting User Password..."
+          $password = "@#Disala123456"
+          Set-LocalUser -Name "runneradmin" -Password ($password | ConvertTo-SecureString -AsPlainText -Force)
+          Write-Host "[!] Enabling RDP..."
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -name "fDenyTSConnections" -value 0
+          New-NetFirewallRule -DisplayName "Allow RDP" -Direction Inbound -Protocol TCP -LocalPort 3389 -Action Allow
 
-          if (-not $anydeskId) {
-              Write-Error "[-] Could not retrieve AnyDesk ID after multiple attempts."
-              exit 1
-          }
-          
-          # Save ID and Password for the next step
-          echo "ANYDESK_ID=$anydeskId" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          echo "ANYDESK_PASSWORD=$anydeskPassword" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          
-          Write-Host "[+] AnyDesk setup complete."
-
-      - name: Show AnyDesk Credentials
+      - name: Setup Tunnel with ngrok
+        shell: powershell
         run: |
-          echo "###############################################"
-          echo "## AnyDesk Connection Details"
-          echo "###############################################"
-          echo ""
-          echo "   AnyDesk ID: ${{ env.ANYDESK_ID }}"
-          echo "   Password:   ${{ env.ANYDESK_PASSWORD }}"
-          echo ""
-          echo "###############################################"
+          Write-Host "[!] Setting up ngrok tunnel..."
+          Invoke-WebRequest 'https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-windows-amd64.zip' -OutFile ngrok.zip
+          Expand-Archive ngrok.zip
+          ./ngrok/ngrok.exe config add-authtoken "${{ secrets.NGROK_AUTHTOKEN }}"
+          Start-Process -FilePath "./ngrok/ngrok.exe" -ArgumentList "tcp", "3389" -NoNewWindow
+          Start-Sleep -Seconds 10
+          Write-Host "[+] ngrok tunnel started."
+          
+      - name: Show RDP Credentials
+        shell: powershell
+        run: |
+          $tunnel = (Invoke-RestMethod -Uri 'http://127.0.0.1:4040/api/tunnels').tunnels[0]
+          $rdpAddress = $tunnel.public_url.Replace("tcp://", "")
+          Write-Host "###############################################" -ForegroundColor Green
+          Write-Host "## RDP Connection Details (USE NGROK)" -ForegroundColor Green
+          Write-Host "###############################################" -ForegroundColor Green
+          Write-Host ""
+          Write-Host "   RDP Address: $rdpAddress"
+          Write-Host "   Username:    runneradmin"
+          Write-Host "   Password:    @#Disala123456"
+          Write-Host ""
+          Write-Host "   Example: 0.tcp.ngrok.io:12345"
+          Write-Host "###############################################" -ForegroundColor Green
 
       - name: Keep Runner Alive
         run: python time.py
