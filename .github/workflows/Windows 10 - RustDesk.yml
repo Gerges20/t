@@ -10,12 +10,12 @@ jobs:
     timeout-minutes: 9999
     
     steps:
-     - name: Running Local Downloads.bat
-  run: cmd /c Downloads.bat
-
+      - name: Running Local Downloads.bat
+        run: cmd /c "Downloads.bat"
 
       - name: Log In To AnyDesk
-        run: cmd /c show.bat
+        run: cmd /c "show.bat"
 
       - name: Time Counter
         run: python time.py
+        shell: python
