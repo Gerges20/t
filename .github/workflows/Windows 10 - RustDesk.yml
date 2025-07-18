@@ -1,4 +1,4 @@
-name: Windows - RDP (Final Version)
+name: Windows - RDP (All-in-One Final)
 
 on:
   workflow_dispatch:
@@ -10,20 +10,38 @@ jobs:
     timeout-minutes: 9999
 
     steps:
-      - name: Download & Install Tools
+      - name: Install All Tools & Dependencies
+        shell: cmd
         run: |
-          # The user's actual URL for Downloads.bat has been inserted below
-          Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/Gerges20/download/main/Downloads.bat' -OutFile "Downloads.bat"
-          
-          # Download the script to keep the session alive
+          @echo [!] Installing All Tools & Dependencies...
+
+          rem --- Download supporting scripts ---
           curl -s -L -o time.py "https://www.dropbox.com/scl/fi/ox42qglbf6fsnm9erf8cw/timelimit.py?rlkey=opyeqgum1k95kud81xlc7d66r&dl=0"
           
-          # Install Python dependencies
+          rem --- Install Python dependencies ---
           pip install psutil --quiet
           pip install pyautogui --quiet
+
+          rem --- Download and install applications ---
+          curl -s -L -o C:\Users\Public\Desktop\Telegram.exe https://telegram.org/dl/desktop/win64
+          curl -s -L -o C:\Users\Public\Desktop\Winrar.exe https://www.rarlab.com/rar/winrar-x64-621.exe
+          powershell -Command "Invoke-WebRequest 'https://github.com/chieunhatnang/VM-QuickConfig/releases/download/1.6.1/VMQuickConfig.exe' -OutFile 'C:\Users\Public\Desktop\VMQuickConfig.exe'"
           
-          # Run the simplified installer
-          cmd /c Downloads.bat
+          rem --- Silently install and cleanup ---
+          C:\Users\Public\Desktop\Telegram.exe /VERYSILENT /NORESTART
+          del C:\Users\Public\Desktop\Telegram.exe
+          C:\Users\Public\Desktop\Winrar.exe /S
+          del C:\Users\Public\Desktop\Winrar.exe
+
+          rem --- Clean up desktop links ---
+          del /f "C:\Users\Public\Desktop\Epic Games Launcher.lnk" > nul 2>&1
+          del /f "C:\Users\Public\Desktop\Unity Hub.lnk" > nul 2>&1
+
+          rem --- Final registry and timezone settings ---
+          reg add "HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\HideDesktopIcons\NewStartPanel" /v "{20D04FE0-3AEA-1069-A2D8-08002B30309D}" /t REG_DWORD /d 0 /f
+          tzutil /s "Sri Lanka Standard Time"
+
+          @echo [+] All tools installed successfully.
 
       - name: Configure System & Enable RDP
         shell: powershell
