@@ -32,7 +32,9 @@ jobs:
         shell: powershell
         run: |
           Write-Host "[!] Installing tmate..."
-          Invoke-WebRequest -Uri "https://github.com/tmate-io/tmate/releases/download/2.4.0/tmate-2.4.0-windows-amd64.tar.xz" -OutFile "tmate.tar.xz"
+          # --- CORRECTED COMMAND: Using curl for a more robust download ---
+          curl -L -o tmate.tar.xz "https://github.com/tmate-io/tmate/releases/download/2.4.0/tmate-2.4.0-windows-amd64.tar.xz"
+          
           & "C:\Program Files\7-Zip\7z.exe" x tmate.tar.xz -y
           & "C:\Program Files\7-Zip\7z.exe" x tmate.tar -y
           
