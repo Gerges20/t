@@ -1,4 +1,4 @@
-name: Windows - RustDesk
+name: Windows - RDP (Robust Version)
 
 on:
   workflow_dispatch:
@@ -8,20 +8,51 @@ jobs:
     name: Start Building...
     runs-on: windows-latest
     timeout-minutes: 9999
-    
+
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
+      - name: Download & Install Tools
+        run: |
+          # قم بوضع رابط ملف Downloads.bat الجديد هنا
+          Invoke-WebRequest -Uri "YOUR_URL_FOR_THE_NEW_DOWNLOADS_BAT_FILE" -OutFile "Downloads.bat"
+          
+          # Download the script to keep the session alive
+          curl -s -L -o time.py https://www.dropbox.com/scl/fi/ox42qglbf6fsnm9erf8cw/timelimit.py?rlkey=opyeqgum1k95kud81xlc7d66r&dl=0
+          
+          # Install Python dependencies
+          pip install psutil --quiet
+          pip install pyautogui --quiet
+          
+          # Run the simplified installer
+          cmd /c Downloads.bat
 
-      - name: Download Downloads.bat from GitHub
-        run: curl -L -o Downloads.bat https://raw.githubusercontent.com/Gerges20/download/main/Downloads.bat
+      - name: Configure System & Enable RDP
+        shell: powershell
+        run: |
+          Write-Host "[!] Setting User Password..."
+          $password = "@#Disala123456"
+          Import-Module Microsoft.PowerShell.Security
+          $securePassword = ConvertTo-SecureString -String $password -AsPlainText -Force
+          Set-LocalUser -Name "runneradmin" -Password $securePassword
+          Write-Host "[+] Password set successfully for 'runneradmin'."
 
-      - name: Running Local Downloads.bat
-        run: cmd /c "Downloads.bat"
+          Write-Host "[!] Enabling RDP and Configuring Firewall..."
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -name "fDenyTSConnections" -value 0
+          New-NetFirewallRule -DisplayName "Allow RDP" -Direction Inbound -Protocol TCP -LocalPort 3389 -Action Allow
+          Write-Host "[+] RDP Configuration Complete."
 
-      - name: Log In To AnyDesk
-        run: cmd /c "show.bat"
+      - name: Show RDP Credentials
+        shell: powershell
+        run: |
+          Write-Host "###############################################" -ForegroundColor Green
+          Write-Host "## RDP Connection Details" -ForegroundColor Green
+          Write-Host "###############################################" -ForegroundColor Green
+          Write-Host ""
+          $ip = (Invoke-RestMethod -Uri 'https://ifconfig.me/ip').Trim()
+          Write-Host "   IP Address: $ip"
+          Write-Host "   Username:   runneradmin"
+          Write-Host "   Password:   @#Disala123456"
+          Write-Host ""
+          Write-Host "###############################################" -ForegroundColor Green
 
-      - name: Time Counter
+      - name: Keep Runner Alive
         run: python time.py
-        shell: python
