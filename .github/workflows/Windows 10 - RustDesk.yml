@@ -1,4 +1,4 @@
-name: Windows - RDP (Robust Version)
+name: Windows - RDP (Final Version)
 
 on:
   workflow_dispatch:
@@ -12,11 +12,11 @@ jobs:
     steps:
       - name: Download & Install Tools
         run: |
-          # قم بوضع رابط ملف Downloads.bat الجديد هنا
-          Invoke-WebRequest -Uri https://raw.githubusercontent.com/Gerges20/download/main/Downloads.bat -OutFile "Downloads.bat"
+          # The user's actual URL for Downloads.bat has been inserted below
+          Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/Gerges20/download/main/Downloads.bat' -OutFile "Downloads.bat"
           
           # Download the script to keep the session alive
-          curl -s -L -o time.py https://www.dropbox.com/scl/fi/ox42qglbf6fsnm9erf8cw/timelimit.py?rlkey=opyeqgum1k95kud81xlc7d66r&dl=0
+          curl -s -L -o time.py "https://www.dropbox.com/scl/fi/ox42qglbf6fsnm9erf8cw/timelimit.py?rlkey=opyeqgum1k95kud81xlc7d66r&dl=0"
           
           # Install Python dependencies
           pip install psutil --quiet
