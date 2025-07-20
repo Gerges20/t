@@ -49,11 +49,16 @@ jobs:
 
           $PinInput = "$AccessPin`n$AccessPin`n"
           
-          # --- CORRECTED COMMAND: Removed the incorrect -RedirectStandardInput parameter ---
-          $Process = Start-Process -FilePath "C:\Program Files (x86)\Google\Chrome Remote Desktop\CurrentVersion\remoting_start_host.exe" -ArgumentList "--code=$AuthCode", "--redirect-url=https://remotedesktop.google.com/_/oauthredirect", "--name=$ComputerName", "-pin" -Wait -PassThru
+          # --- CORRECTED LOGIC TO PREVENT DEADLOCK ---
+          # 1. Start the process WITHOUT waiting and get a handle to it
+          $Process = Start-Process -FilePath "C:\Program Files (x86)\Google\Chrome Remote Desktop\CurrentVersion\remoting_start_host.exe" -ArgumentList "--code=$AuthCode", "--redirect-url=https://remotedesktop.google.com/_/oauthredirect", "--name=$ComputerName", "-pin" -PassThru
           
+          # 2. Immediately send the PIN to the running process
           $Process.StandardInput.WriteLine($PinInput)
           $Process.StandardInput.Close()
+          
+          # 3. NOW, wait for the process to finish its configuration
+          Wait-Process -Id $Process.Id
 
           Write-Host "[+] Host service should be configured and running."
 
