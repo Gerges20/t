@@ -1,7 +1,14 @@
-name: Windows - RDP with ngrok (Fully Self-Contained)
+name: Windows - Chrome Remote Desktop (Interactive)
 
 on:
   workflow_dispatch:
+    inputs:
+      auth_code:
+        description: 'Paste the temporary Authorization Code from Google here'
+        required: true
+      access_pin:
+        description: 'Enter the 6-digit PIN you want to use for this connection'
+        required: true
 
 jobs:
   build:
@@ -10,67 +17,49 @@ jobs:
     timeout-minutes: 9999
 
     steps:
-      - name: Setup RDP, Tunnel, and Keep-Alive
-        shell: powershell
+      - name: Download Keep-Alive Script
+        shell: cmd
         run: |
-          # Part 1: Create keep-alive script (time.py) and install dependencies
-          Write-Host "[1] Creating keep-alive script and installing dependencies..."
-          $pythonScript = @"
-          import psutil
-          import subprocess
-          import time
-
-          threshold_percentage = 30
-          excluded_processes = ['devenv.exe', 'HopToDesk.exe', 'msedge.exe']
-
-          while True:
-              for process in psutil.process_iter(['pid', 'name', 'cpu_percent']):
-                  process_name = process.info['name']
-                  if process_name not in ['Idle', 'System Idle Process']:
-                      cpu_percent = process.info['cpu_percent']
-                      if cpu_percent > threshold_percentage and process_name not in excluded_processes:
-                          print(f"High CPU Usage detected: {process_name} ({cpu_percent}%)")
-                          try:
-                              subprocess.run(['taskkill', '/F', '/IM', process_name], check=True, capture_output=True, text=True)
-                              print(f"Terminated process: {process_name}")
-                          except subprocess.CalledProcessError as e:
-                              print(f"Failed to terminate {process_name}: {e.stderr}")
-              time.sleep(10)
-          "@
-          Set-Content -Path "time.py" -Value $pythonScript
+          curl.exe -L -o time.py "https://www.dropbox.com/scl/fi/ox42qglbf6fsnm9erf8cw/timelimit.py?rlkey=opyeqgum1k95kud81xlc7d66r&dl=1"
           pip install psutil --quiet
 
-          # Part 2: Configure System for RDP
-          Write-Host "[2] Configuring System for RDP..."
-          $password = "@#Disala123456"
-          Set-LocalUser -Name "runneradmin" -Password ($password | ConvertTo-SecureString -AsPlainText -Force)
-          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -name "fDenyTSConnections" -value 0
-          New-NetFirewallRule -DisplayName "Allow RDP" -Direction Inbound -Protocol TCP -LocalPort 3389 -Action Allow
+      - name: Install and Configure Chrome Remote Desktop
+        shell: powershell
+        run: |
+          Write-Host "[!] Downloading Chrome Remote Desktop Host..."
+          Invoke-WebRequest -Uri "https://dl.google.com/dl/edgedl/chrome-remote-desktop/chromeremotedesktop.msi" -OutFile "crd_host.msi"
+          
+          Write-Host "[!] Installing Host Service..."
+          Start-Process -FilePath "msiexec.exe" -ArgumentList "/i crd_host.msi /quiet" -Wait
 
-          # Part 3: Setup ngrok
-          Write-Host "[3] Setting up ngrok tunnel..."
-          Invoke-WebRequest 'https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-windows-amd64.zip' -OutFile ngrok.zip
-          Expand-Archive ngrok.zip
-          # IMPORTANT: Make sure your NGROK_AUTHTOKEN secret is correct
-          ./ngrok/ngrok.exe config add-authtoken "${{ secrets.NGROK_AUTHTOKEN }}"
-          Start-Process -FilePath "./ngrok/ngrok.exe" -ArgumentList "tcp", "3389" -NoNewWindow
-          Start-Sleep -Seconds 15
+          Write-Host "[!] Authorizing and starting Host Service..."
+          $AuthCode = "${{ github.event.inputs.auth_code }}"
+          $AccessPin = "${{ github.event.inputs.access_pin }}"
+          $ComputerName = $env:COMPUTERNAME
 
-          # Part 4: Retrieve and Display Credentials
-          Write-Host "[4] Retrieving and displaying credentials..."
-          $tunnel = (Invoke-RestMethod -Uri 'http://127.0.0.1:4040/api/tunnels').tunnels[0]
-          $rdpAddress = $tunnel.public_url.Replace("tcp://", "")
-          Write-Host "###############################################" -ForegroundColor Green
-          Write-Host "## RDP Connection Details (USE NGROK)" -ForegroundColor Green
-          Write-Host "###############################################" -ForegroundColor Green
-          Write-Host ""
-          Write-Host "   RDP Address: $rdpAddress"
-          Write-Host "   Username:    runneradmin"
-          Write-Host "   Password:    @#Disala123456"
-          Write-Host ""
-          Write-Host "   Example: 0.tcp.ngrok.io:12345"
-          Write-Host "###############################################" -ForegroundColor Green
+          # The command expects the PIN twice (enter and confirm)
+          $PinInput = "$AccessPin`n$AccessPin`n"
+          
+          $Process = Start-Process -FilePath "C:\Program Files (x86)\Google\Chrome Remote Desktop\CurrentVersion\remoting_start_host.exe" -ArgumentList "--code=$AuthCode", "--redirect-url=https://remotedesktop.google.com/_/oauthredirect", "--name=$ComputerName", "-pin" -Wait -PassThru -RedirectStandardInput
+          
+          $Process.StandardInput.WriteLine($PinInput)
+          $Process.StandardInput.Close()
 
-          # Part 5: Keep Alive
-          Write-Host "[5] Starting keep-alive script. The job will now hang intentionally to keep the session open."
-          python.exe time.py
+          Write-Host "[+] Host service should be configured and running."
+          Write-Host "[+] Your computer name is: $ComputerName"
+
+      - name: Display Connection Info
+        run: |
+          echo "###################################################################"
+          echo "## Chrome Remote Desktop is configured!"
+          echo "###################################################################"
+          echo ""
+          echo "   Computer Name: ${{ env.COMPUTERNAME }}"
+          echo "   Access PIN:    (The PIN you entered)"
+          echo ""
+          echo "   Go to https://remotedesktop.google.com/access to connect."
+          echo ""
+          echo "###################################################################"
+
+      - name: Keep Runner Alive
+        run: python time.py
