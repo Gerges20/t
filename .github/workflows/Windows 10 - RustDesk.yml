@@ -20,8 +20,8 @@ jobs:
       - name: Download Keep-Alive Script
         shell: cmd
         run: |
-          curl.exe -L -o time.py "https://www.dropbox.com/scl/fi/ox42qglbf6fsnm9erf8cw/timeli
-mit.py?rlkey=opyeqgum1k95kud81xlc7d66r&dl=1"
+          rem --- The command and URL below must be on a single line ---
+          curl.exe -L -o time.py "https://www.dropbox.com/scl/fi/ox42qglbf6fsnm9erf8cw/timelimit.py?rlkey=opyeqgum1k95kud81xlc7d66r&dl=1"
           pip install psutil --quiet
 
       - name: Install and Configure Chrome Remote Desktop
