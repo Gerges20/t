@@ -1,10 +1,10 @@
-name: Windows - Chrome Remote Desktop (Interactive)
+name: Windows - Chrome Remote Desktop (Smart)
 
 on:
   workflow_dispatch:
     inputs:
-      auth_code:
-        description: 'Paste the temporary Authorization Code from Google here'
+      google_command:
+        description: 'Paste the ENTIRE command line from Google here'
         required: true
       access_pin:
         description: 'Enter the 6-digit PIN you want to use for this connection'
@@ -32,10 +32,18 @@ jobs:
           Write-Host "[!] Installing Host Service..."
           Start-Process -FilePath "msiexec.exe" -ArgumentList "/i crd_host.msi /quiet" -Wait
 
-          Write-Host "[!] Authorizing and starting Host Service..."
-          $AuthCode = "${{ github.event.inputs.auth_code }}"
+          Write-Host "[!] Parsing the command and starting Host Service..."
+          $FullCommand = "${{ github.event.inputs.google_command }}"
           $AccessPin = "${{ github.event.inputs.access_pin }}"
           $ComputerName = $env:COMPUTERNAME
+          
+          # This regex extracts the auth code from the full command string
+          $AuthCode = [regex]::Match($FullCommand, '--code="([^"]+)"').Groups[1].Value
+
+          if (-not $AuthCode) {
+              Write-Error "[-] Could not find the Authorization Code in the provided command string. Please copy the full command."
+              exit 1
+          }
 
           # The command expects the PIN twice (enter and confirm)
           $PinInput = "$AccessPin`n$AccessPin`n"
