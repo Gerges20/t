@@ -1,11 +1,7 @@
-name: Windows - Chrome Remote Desktop
+name: Windows - AnyDesk Remote Access
 
 on:
   workflow_dispatch:
-    inputs:
-      google_command:
-        description: 'Paste the ENTIRE command line from Google here'
-        required: true
 
 jobs:
   build:
@@ -20,62 +16,46 @@ jobs:
           curl.exe -L -o time.py "https://www.dropbox.com/scl/fi/ox42qglbf6fsnm9erf8cw/timelimit.py?rlkey=opyeqgum1k95kud81xlc7d66r&dl=1"
           pip install psutil --quiet
 
-      - name: Install and Configure Chrome Remote Desktop
-        env:
-          GOOGLE_COMMAND: ${{ github.event.inputs.google_command }}
+      - name: Install and Configure AnyDesk
         shell: powershell
         run: |
-          Write-Host "[!] Downloading Chrome Remote Desktop Host..."
-          Invoke-WebRequest -Uri "https://dl.google.com/edgedl/chrome-remote-desktop/chromeremotedesktophost.msi" -OutFile "crd_host.msi"
+          $anydeskPassword = "@#Disala123456"
+          Write-Host "[!] Downloading AnyDesk..."
+          Invoke-WebRequest -Uri "https://download.anydesk.com/AnyDesk.exe" -OutFile "AnyDesk.exe"
           
-          Write-Host "[!] Installing Host Service..."
-          Start-Process -FilePath "msiexec.exe" -ArgumentList "/i crd_host.msi /quiet" -Wait
-
-          $hostExePath = "C:\Program Files (x86)\Google\Chrome Remote Desktop\CurrentVersion\remoting_start_host.exe"
-          if (-not (Test-Path $hostExePath)) {
-              Write-Error "[-] CRD host executable not found after installation."
-              exit 1
+          Write-Host "[!] Installing AnyDesk silently..."
+          Start-Process -FilePath ".\AnyDesk.exe" -ArgumentList '--install "C:\Program Files (x86)\AnyDesk" --start-with-win --silent' -Wait
+          
+          Start-Sleep -Seconds 10
+          
+          Write-Host "[!] Setting password for Unattended Access..."
+          $anydeskPassword | & "C:\Program Files (x86)\AnyDesk\AnyDesk.exe" --set-password
+          
+          Write-Host "[!] Retrieving AnyDesk ID (will retry up to 5 times)..."
+          $anydeskId = ""
+          for ($i=1; $i -le 5; $i++) {
+              $anydeskId = & "C:\Program Files (x86)\AnyDesk\AnyDesk.exe" --get-id
+              if ($anydeskId) {
+                  Write-Host "[+] Success! AnyDesk ID is: $anydeskId"
+                  break
+              } else {
+                  Write-Host "[-] Attempt $i failed. Retrying in 5 seconds..."
+                  Start-Sleep -Seconds 5
+              }
           }
 
-          Write-Host "[!] Parsing the command and starting Host Service..."
-          $FullCommand = $env:GOOGLE_COMMAND
-          # --- PIN is now hardcoded as requested ---
-          $AccessPin = "002004"
-          $ComputerName = $env:COMPUTERNAME
-          
-          $AuthCode = [regex]::Match($FullCommand, '--code="([^"]+)"').Groups[1].Value
-          if (-not $AuthCode) {
-              Write-Error "[-] Could not find the Authorization Code in the provided command string."
+          if (-not $anydeskId) {
+              Write-Error "[-] Could not retrieve AnyDesk ID after multiple attempts."
               exit 1
           }
-
-          $PinInput = "$AccessPin`n$AccessPin`n"
           
-          $Process = Start-Process -FilePath $hostExePath -ArgumentList "--code=$AuthCode", "--redirect-url=https://remotedesktop.google.com/_/oauthredirect", "--name=$ComputerName", "-pin" -PassThru -NoNewWindow
+          echo "ANYDESK_ID=$anydeskId" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          echo "ANYDESK_PASSWORD=$anydeskPassword" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           
-          if ($null -eq $Process) {
-              Write-Error "[-] Start-Process failed to launch the CRD host."
-              exit 1
-          }
+          Write-Host "[+] AnyDesk setup complete."
 
-          $Process.StandardInput.WriteLine($PinInput)
-          $Process.StandardInput.Close()
-          
-          Wait-Process -Id $Process.Id
-          Write-Host "[+] Host service should be configured and running."
-
-      - name: Display Connection Info
+      - name: Show AnyDesk Credentials
         run: |
-          echo "###################################################################"
-          echo "## Chrome Remote Desktop is configured!"
-          echo "###################################################################"
-          echo ""
-          echo "   Computer Name: ${{ env.COMPUTERNAME }}"
-          echo "   Access PIN:    002004"
-          echo ""
-          echo "   Go to https://remotedesktop.google.com/access to connect."
-          echo ""
-          echo "###################################################################"
-
-      - name: Keep Runner Alive
-        run: python time.py
+          echo "###############################################"
+          echo "## AnyDesk Connection Details"
+          echo "###############################################"
