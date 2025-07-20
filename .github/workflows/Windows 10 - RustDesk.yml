@@ -35,13 +35,19 @@ jobs:
           Write-Host "[!] Installing Host Service..."
           Start-Process -FilePath "msiexec.exe" -ArgumentList "/i crd_host.msi /quiet" -Wait
 
+          # --- NEW: Verify that the host executable exists after installation ---
+          $hostExePath = "C:\Program Files (x86)\Google\Chrome Remote Desktop\CurrentVersion\remoting_start_host.exe"
+          if (-not (Test-Path $hostExePath)) {
+              Write-Error "[-] CRD host executable not found after installation. The installation may have failed."
+              exit 1
+          }
+
           Write-Host "[!] Parsing the command and starting Host Service..."
           $FullCommand = $env:GOOGLE_COMMAND
           $AccessPin = $env:ACCESS_PIN
           $ComputerName = $env:COMPUTERNAME
           
           $AuthCode = [regex]::Match($FullCommand, '--code="([^"]+)"').Groups[1].Value
-
           if (-not $AuthCode) {
               Write-Error "[-] Could not find the Authorization Code in the provided command string."
               exit 1
@@ -49,17 +55,18 @@ jobs:
 
           $PinInput = "$AccessPin`n$AccessPin`n"
           
-          # --- CORRECTED LOGIC TO PREVENT DEADLOCK ---
-          # 1. Start the process WITHOUT waiting and get a handle to it
-          $Process = Start-Process -FilePath "C:\Program Files (x86)\Google\Chrome Remote Desktop\CurrentVersion\remoting_start_host.exe" -ArgumentList "--code=$AuthCode", "--redirect-url=https://remotedesktop.google.com/_/oauthredirect", "--name=$ComputerName", "-pin" -PassThru
+          $Process = Start-Process -FilePath $hostExePath -ArgumentList "--code=$AuthCode", "--redirect-url=https://remotedesktop.google.com/_/oauthredirect", "--name=$ComputerName", "-pin" -PassThru
           
-          # 2. Immediately send the PIN to the running process
+          # --- NEW: Verify that the process object was created successfully ---
+          if ($null -eq $Process) {
+              Write-Error "[-] Start-Process failed to launch the CRD host. The process could not be started."
+              exit 1
+          }
+
           $Process.StandardInput.WriteLine($PinInput)
           $Process.StandardInput.Close()
           
-          # 3. NOW, wait for the process to finish its configuration
           Wait-Process -Id $Process.Id
-
           Write-Host "[+] Host service should be configured and running."
 
       - name: Display Connection Info
