@@ -30,7 +30,6 @@ jobs:
         shell: powershell
         run: |
           Write-Host "[!] Downloading Chrome Remote Desktop Host..."
-          # --- CORRECTED LINK: Using the URL you provided ---
           Invoke-WebRequest -Uri "https://dl.google.com/edgedl/chrome-remote-desktop/chromeremotedesktophost.msi" -OutFile "crd_host.msi"
           
           Write-Host "[!] Installing Host Service..."
@@ -50,7 +49,8 @@ jobs:
 
           $PinInput = "$AccessPin`n$AccessPin`n"
           
-          $Process = Start-Process -FilePath "C:\Program Files (x86)\Google\Chrome Remote Desktop\CurrentVersion\remoting_start_host.exe" -ArgumentList "--code=$AuthCode", "--redirect-url=https://remotedesktop.google.com/_/oauthredirect", "--name=$ComputerName", "-pin" -Wait -PassThru -RedirectStandardInput
+          # --- CORRECTED COMMAND: Removed the incorrect -RedirectStandardInput parameter ---
+          $Process = Start-Process -FilePath "C:\Program Files (x86)\Google\Chrome Remote Desktop\CurrentVersion\remoting_start_host.exe" -ArgumentList "--code=$AuthCode", "--redirect-url=https://remotedesktop.google.com/_/oauthredirect", "--name=$ComputerName", "-pin" -Wait -PassThru
           
           $Process.StandardInput.WriteLine($PinInput)
           $Process.StandardInput.Close()
