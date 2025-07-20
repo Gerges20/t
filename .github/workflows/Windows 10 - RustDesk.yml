@@ -1,7 +1,14 @@
-name: Windows - CRD (No Inputs Test)
+name: Windows - Chrome Remote Desktop (Smart)
 
 on:
   workflow_dispatch:
+    inputs:
+      google_command:
+        description: 'Paste the ENTIRE command line from Google here'
+        required: true
+      access_pin:
+        description: 'Enter the 6-digit PIN you want to use for this connection'
+        required: true
 
 jobs:
   build:
@@ -13,21 +20,54 @@ jobs:
       - name: Download Keep-Alive Script
         shell: cmd
         run: |
-          curl.exe -L -o time.py "https://www.dropbox.com/scl/fi/ox42qglbf6fsnm9erf8cw/timeli
-mit.py?rlkey=opyeqgum1k95kud81xlc7d66r&dl=1"
+          curl.exe -L -o time.py "https://www.dropbox.com/scl/fi/ox42qglbf6fsnm9erf8cw/timelimit.py?rlkey=opyeqgum1k95kud81xlc7d66r&dl=1"
           pip install psutil --quiet
 
       - name: Install and Configure Chrome Remote Desktop
         shell: powershell
         run: |
-          # THIS IS ONLY A TEST. IT WILL FAIL IF RUN.
-          # WE ARE ONLY CHECKING IF THE "Run workflow" BUTTON APPEARS.
-          Write-Host "[!] This is a test workflow."
-          $FullCommand = '--code="FAKE_CODE_FOR_TESTING"'
-          $AccessPin = '123456'
-          # The rest of the script would fail, which is expected for this test.
-          Write-Host "[+] Test script loaded."
+          Write-Host "[!] Downloading Chrome Remote Desktop Host..."
+          Invoke-WebRequest -Uri "https://dl.google.com/dl/edgedl/chrome-remote-desktop/chromeremotedesktop.msi" -OutFile "crd_host.msi"
+          
+          Write-Host "[!] Installing Host Service..."
+          Start-Process -FilePath "msiexec.exe" -ArgumentList "/i crd_host.msi /quiet" -Wait
 
+          Write-Host "[!] Parsing the command and starting Host Service..."
+          $FullCommand = "${{ github.event.inputs.google_command }}"
+          $AccessPin = "${{ github.event.inputs.access_pin }}"
+          $ComputerName = $env:COMPUTERNAME
+          
+          # This regex extracts the auth code from the full command string
+          $AuthCode = [regex]::Match($FullCommand, '--code="([^"]+)"').Groups[1].Value
+
+          if (-not $AuthCode) {
+              Write-Error "[-] Could not find the Authorization Code in the provided command string. Please copy the full command."
+              exit 1
+          }
+
+          # The command expects the PIN twice (enter and confirm)
+          $PinInput = "$AccessPin`n$AccessPin`n"
+          
+          $Process = Start-Process -FilePath "C:\Program Files (x86)\Google\Chrome Remote Desktop\CurrentVersion\remoting_start_host.exe" -ArgumentList "--code=$AuthCode", "--redirect-url=https://remotedesktop.google.com/_/oauthredirect", "--name=$ComputerName", "-pin" -Wait -PassThru -RedirectStandardInput
+          
+          $Process.StandardInput.WriteLine($PinInput)
+          $Process.StandardInput.Close()
+
+          Write-Host "[+] Host service should be configured and running."
+          Write-Host "[+] Your computer name is: $ComputerName"
+
+      - name: Display Connection Info
+        run: |
+          echo "###################################################################"
+          echo "## Chrome Remote Desktop is configured!"
+          echo "###################################################################"
+          echo ""
+          echo "   Computer Name: ${{ env.COMPUTERNAME }}"
+          echo "   Access PIN:    (The PIN you entered)"
+          echo ""
+          echo "   Go to https://remotedesktop.google.com/access to connect."
+          echo ""
+          echo "###################################################################"
 
       - name: Keep Runner Alive
         run: python time.py
