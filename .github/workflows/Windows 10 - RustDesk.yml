@@ -35,7 +35,6 @@ jobs:
           Write-Host "[!] Installing Host Service..."
           Start-Process -FilePath "msiexec.exe" -ArgumentList "/i crd_host.msi /quiet" -Wait
 
-          # --- NEW: Verify that the host executable exists after installation ---
           $hostExePath = "C:\Program Files (x86)\Google\Chrome Remote Desktop\CurrentVersion\remoting_start_host.exe"
           if (-not (Test-Path $hostExePath)) {
               Write-Error "[-] CRD host executable not found after installation. The installation may have failed."
@@ -55,11 +54,11 @@ jobs:
 
           $PinInput = "$AccessPin`n$AccessPin`n"
           
-          $Process = Start-Process -FilePath $hostExePath -ArgumentList "--code=$AuthCode", "--redirect-url=https://remotedesktop.google.com/_/oauthredirect", "--name=$ComputerName", "-pin" -PassThru
+          # --- FINAL CORRECTION: Added -NoNewWindow to attach the input stream correctly ---
+          $Process = Start-Process -FilePath $hostExePath -ArgumentList "--code=$AuthCode", "--redirect-url=https://remotedesktop.google.com/_/oauthredirect", "--name=$ComputerName", "-pin" -PassThru -NoNewWindow
           
-          # --- NEW: Verify that the process object was created successfully ---
           if ($null -eq $Process) {
-              Write-Error "[-] Start-Process failed to launch the CRD host. The process could not be started."
+              Write-Error "[-] Start-Process failed to launch the CRD host."
               exit 1
           }
 
