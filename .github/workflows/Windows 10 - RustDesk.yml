@@ -25,7 +25,7 @@ mit.py?rlkey=opyeqgum1k95kud81xlc7d66r&dl=1"
           pip install psutil --quiet
 
       - name: Install and Configure Chrome Remote Desktop
-        # --- NEW: We pass the inputs as environment variables for safety ---
+        # --- We pass the inputs as environment variables for safety and reliability ---
         env:
           GOOGLE_COMMAND: ${{ github.event.inputs.google_command }}
           ACCESS_PIN: ${{ github.event.inputs.access_pin }}
@@ -38,7 +38,7 @@ mit.py?rlkey=opyeqgum1k95kud81xlc7d66r&dl=1"
           Start-Process -FilePath "msiexec.exe" -ArgumentList "/i crd_host.msi /quiet" -Wait
 
           Write-Host "[!] Parsing the command and starting Host Service..."
-          # --- NEW: We read the variables from the environment ---
+          # --- We read the variables from the environment ---
           $FullCommand = $env:GOOGLE_COMMAND
           $AccessPin = $env:ACCESS_PIN
           $ComputerName = $env:COMPUTERNAME
@@ -68,7 +68,7 @@ mit.py?rlkey=opyeqgum1k95kud81xlc7d66r&dl=1"
           echo "## Chrome Remote Desktop is configured!"
           echo "###################################################################"
           echo ""
-          echo "   Computer Name: ${{ env:COMPUTERNAME }}"
+          echo "   Computer Name: ${{ env.COMPUTERNAME }}"
           echo "   Access PIN:    (The PIN you entered)"
           echo ""
           echo "   Go to https://remotedesktop.google.com/access to connect."
