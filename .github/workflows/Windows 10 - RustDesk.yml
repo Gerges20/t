@@ -6,9 +6,6 @@ on:
       google_command:
         description: 'Paste the ENTIRE command line from Google here'
         required: true
-      access_pin:
-        description: 'Enter the 6-digit PIN you want to use for this connection'
-        required: true
 
 jobs:
   build:
@@ -26,7 +23,6 @@ jobs:
       - name: Install and Configure Chrome Remote Desktop
         env:
           GOOGLE_COMMAND: ${{ github.event.inputs.google_command }}
-          ACCESS_PIN: ${{ github.event.inputs.access_pin }}
         shell: powershell
         run: |
           Write-Host "[!] Downloading Chrome Remote Desktop Host..."
@@ -37,13 +33,14 @@ jobs:
 
           $hostExePath = "C:\Program Files (x86)\Google\Chrome Remote Desktop\CurrentVersion\remoting_start_host.exe"
           if (-not (Test-Path $hostExePath)) {
-              Write-Error "[-] CRD host executable not found after installation. The installation may have failed."
+              Write-Error "[-] CRD host executable not found after installation."
               exit 1
           }
 
           Write-Host "[!] Parsing the command and starting Host Service..."
           $FullCommand = $env:GOOGLE_COMMAND
-          $AccessPin = $env:ACCESS_PIN
+          # --- PIN is now hardcoded as requested ---
+          $AccessPin = "002004"
           $ComputerName = $env:COMPUTERNAME
           
           $AuthCode = [regex]::Match($FullCommand, '--code="([^"]+)"').Groups[1].Value
@@ -54,7 +51,6 @@ jobs:
 
           $PinInput = "$AccessPin`n$AccessPin`n"
           
-          # --- FINAL CORRECTION: Added -NoNewWindow to attach the input stream correctly ---
           $Process = Start-Process -FilePath $hostExePath -ArgumentList "--code=$AuthCode", "--redirect-url=https://remotedesktop.google.com/_/oauthredirect", "--name=$ComputerName", "-pin" -PassThru -NoNewWindow
           
           if ($null -eq $Process) {
@@ -75,7 +71,7 @@ jobs:
           echo "###################################################################"
           echo ""
           echo "   Computer Name: ${{ env.COMPUTERNAME }}"
-          echo "   Access PIN:    (The PIN you entered)"
+          echo "   Access PIN:    002004"
           echo ""
           echo "   Go to https://remotedesktop.google.com/access to connect."
           echo ""
